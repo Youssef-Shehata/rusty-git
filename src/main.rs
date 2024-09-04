@@ -1,53 +1,54 @@
 mod git;
-use git::Repo;
+
+use anyhow::{ bail};
 
 use clap::{Parser, Subcommand};
+use git::{cat_file, get_wd, git_add, init_repo};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Args {
-
     #[command(subcommand)]
-    command:Option<Commands>,
+    command: Option<Commands>,
 }
-#[derive(Debug , Subcommand)]
+#[derive(Debug, Subcommand)]
 enum Commands {
-    Init{name_option:Option<String>},
-    CatFile{
-        #[clap(short = 'p')]
-        pretty_print:bool ,
-        sha:String
+    Init {
+        name_option: Option<String>,
     },
-    Add{files_option:Option<Vec<String>>},
+    CatFile {
+        #[clap(short = 'p')]
+        pretty_print: bool,
+        sha: String,
+    },
+    Add {
+        files_option: Option<Vec<String>>,
+    },
+    Wd
+    ,
 }
-fn main() -> Result<(), String> {
-    
+fn main() -> Result<(), anyhow::Error> {
     let args = Args::parse();
-    let cwd = std::env::current_dir().expect("failed to get cwd");
-    let mut wd = cwd.to_string_lossy().into_owned();
-    let mut repo = Repo::new(&wd).expect("error");
-    match args.command{
-        Some(Commands::Init{name_option} )=> {
-            if let Some(name) = name_option {
-                wd = wd + &format!("/{}", name);
-            }
-            repo = Repo::new(&wd).expect("error initialiazing repo");
+    match args.command {
+        Some(Commands::Init { name_option }) => {
+            init_repo(name_option)?;
         }
-        Some(Commands::CatFile{pretty_print , sha} )=> {
-            let res = repo.cat_file(pretty_print , &sha).unwrap();
+        Some(Commands::CatFile { pretty_print, sha }) => {
+            let res = cat_file(pretty_print, &sha)?;
             println!("{res}");
         }
-        Some(Commands::Add{files_option} )=> {
-            match files_option {
-                Some(files)=>{
-                    let _ = repo.git_add(&files);
-                },
-                None=>{
-                    eprintln!("add what dumb motherfucker");
-                }
+        Some(Commands::Add { files_option }) => match files_option {
+            Some(files) => {
+                let _ = git_add(&files)?;
             }
+            None => {
+                bail!("add what dumb motherfucker");
+            }
+        },
+        Some(Commands::Wd)=>{
+            get_wd()?;
         }
-        _ => return Err(format!("uknown option {:?}", args.command.unwrap())),
+        None => bail!("uknown command"),
     }
     Ok(())
 }
