@@ -1,6 +1,6 @@
 mod git;
 
-use anyhow::{ bail};
+use anyhow::bail;
 
 use clap::{Parser, Subcommand};
 use git::{cat_file, get_wd, git_add, init_repo};
@@ -24,8 +24,7 @@ enum Commands {
     Add {
         files_option: Option<Vec<String>>,
     },
-    Wd
-    ,
+    Wd,
 }
 fn main() -> Result<(), anyhow::Error> {
     let args = Args::parse();
@@ -34,8 +33,7 @@ fn main() -> Result<(), anyhow::Error> {
             init_repo(name_option)?;
         }
         Some(Commands::CatFile { pretty_print, sha }) => {
-            let res = cat_file(pretty_print, &sha)?;
-            println!("{res}");
+             cat_file(pretty_print, &sha)?;
         }
         Some(Commands::Add { files_option }) => match files_option {
             Some(files) => {
@@ -45,7 +43,7 @@ fn main() -> Result<(), anyhow::Error> {
                 bail!("add what dumb motherfucker");
             }
         },
-        Some(Commands::Wd)=>{
+        Some(Commands::Wd) => {
             get_wd()?;
         }
         None => bail!("uknown command"),

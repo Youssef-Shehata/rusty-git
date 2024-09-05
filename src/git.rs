@@ -1,10 +1,19 @@
 use anyhow::{anyhow, bail, Context};
 use flate2::bufread::ZlibDecoder;
 use std::{
-    fs::{self, DirEntry},
-    io::{self, Read, Write},
+    ffi::CStr,
+    fs::{self},
+    io::{ BufRead, BufReader, Read, Write},
+    path::PathBuf,
 };
 
+// temporarily to limit the outpu files when testing and developing features
+const IGNORED : &[&str]= &["target", ".git" , ".gitignore" , ".env"];
+enum BlobKind {
+    Blob,
+    Commit,
+    Tree,
+}
 use std::path::Path;
 pub fn get_wd() -> anyhow::Result<String> {
     let cwd = std::env::current_dir().expect("failed to get cwd");
@@ -28,6 +37,7 @@ pub fn get_wd() -> anyhow::Result<String> {
     }
     return Err(anyhow!("fatal: Not a git repository"));
 }
+
 pub fn init_repo(name: Option<String>) -> anyhow::Result<()> {
     let cwd = std::env::current_dir().expect("failed to get cwd");
     let mut wd = cwd.to_string_lossy().into_owned();
@@ -38,7 +48,7 @@ pub fn init_repo(name: Option<String>) -> anyhow::Result<()> {
         }
     }
 
-    if let Ok(()) = assert_is_repo(&wd) {
+    if let Ok(()) = assert_wd_is_repo(&wd) {
         println!("reinitializing repo");
         return Ok(());
     }
@@ -51,7 +61,7 @@ pub fn init_repo(name: Option<String>) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn assert_is_repo(wd: &String) -> anyhow::Result<()> {
+pub fn assert_wd_is_repo(wd: &String) -> anyhow::Result<()> {
     let head_path = wd.to_owned() + "/.git/HEAD";
     let mut f = std::fs::File::open(&head_path)?;
     let mut content = String::new();
@@ -62,16 +72,7 @@ pub fn assert_is_repo(wd: &String) -> anyhow::Result<()> {
     bail!("not a repo");
 }
 
-pub fn git_add(args: &Vec<String>) -> anyhow::Result<()> {
-    let wd = get_wd()?;
-    if args[0] == ".".to_string() {
-        println!("working dir : {}", wd);
-        let dir = Path::new(&wd);
-        map_dir_files(dir, &call_back).expect("manga");
-    }
-    Ok(())
-}
-pub fn cat_file(pretty_print: bool, sha: &String) -> anyhow::Result<String> {
+pub fn cat_file(pretty_print: bool, sha: &String) -> anyhow::Result<()> {
     if sha.len() < 4 {
         bail!("minimum 4 letters needed for the sha");
     }
@@ -79,19 +80,58 @@ pub fn cat_file(pretty_print: bool, sha: &String) -> anyhow::Result<String> {
     let git_path = wd + "/.git";
 
     let objects_path = git_path + &format!("/objects/{}/", &sha[..2]);
-    println!("path {objects_path}");
     let compressed_text =
         find_blob(&objects_path, &sha[2..].to_string()).context("blob not found")?;
 
-    if pretty_print {
-        let mut s = String::new();
-        let mut d = ZlibDecoder::new(&compressed_text[..]);
-        d.read_to_string(&mut s)
-            .context("error reading blob content")?;
-        return Ok(s);
+    anyhow::ensure!(pretty_print, "please provide a valid option");
+    let mut buff = Vec::new();
+    let z_lib = ZlibDecoder::new(&compressed_text[..]);
+    let mut buff_reader = BufReader::new(z_lib);
+    //read the  header of the blob :blob <size>/0<content>
+    buff_reader
+        .read_until(0, &mut buff)
+        .context("couldnt read blob")?;
+
+    let header = CStr::from_bytes_until_nul(&buff).context("blob header is corruupted")?;
+    let header = header
+        .to_str()
+        .context("Blob has invalid characters , make sure its all UTF-8")?;
+
+    let Some((kind, size)) = header.split_once(" ") else {
+        bail!("invalid header of blob file")
+    };
+    let kind = match kind {
+        "blob" => BlobKind::Blob,
+        "commit" => BlobKind::Commit,
+        "tree" => BlobKind::Tree,
+        _ => bail!("uknown file type {kind}"),
+    };
+    let size = size.parse::<usize>().context("couldn't read blob size")?;
+
+    buff.clear();
+    buff.resize(size, 0);
+    buff_reader
+        .read_exact(&mut buff)
+        .context("failed to read blob contents")?;
+
+    let n = buff_reader.read(&mut [0]).context("")?;
+    if n != 0 {
+        bail!(
+            "size of blob exceeded expectations , expected {size} bytes, found {n} trailing bytes."
+        );
     }
 
-    bail!("not a valid option")
+    let stdout = std::io::stdout();
+    let mut stdout = stdout.lock();
+    match kind {
+        BlobKind::Blob => {
+            stdout
+                .write_all(&buff)
+                .context("couldn't write blob to stdout")?;
+        }
+        _ => bail!("cant print this one yet, sorry."),
+    }
+    Ok(())
 }
 
 fn find_blob(path: &String, sha: &String) -> anyhow::Result<Vec<u8>> {
@@ -127,21 +167,32 @@ fn find_blob(path: &String, sha: &String) -> anyhow::Result<Vec<u8>> {
     return Ok(encoded_bytes);
 }
 
-fn map_dir_files(dir: &Path, cb: &dyn Fn(&DirEntry)) -> io::Result<()> {
-    if dir.is_dir() {
-        for entry in fs::read_dir(dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_dir() {
-                map_dir_files(&path, cb)?;
-            } else {
-                cb(&entry);
-            }
+pub fn git_add(args: &Vec<String>) -> anyhow::Result<()> {
+    let wd = get_wd()?;
+    if args[0] == ".".to_string() {
+        let dir = Path::new(&wd);
+
+        let files = collect_tracked_files(dir)?;
+        for file in files.iter() {
+            println!("{}", file.display());
         }
     }
     Ok(())
 }
-
-fn call_back(dir: &DirEntry) {
-    println!("{:?}", dir);
+fn collect_tracked_files(dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
+    println!("\n");
+    println!("collecting on {}", dir.display());
+    println!("\n");
+    let mut files = Vec::new();
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() &&  !IGNORED.contains(&path.file_name().unwrap().to_str().unwrap() ){
+            files.extend(collect_tracked_files(&path)?);
+        } else if path.is_file()&&  !IGNORED.contains(&path.file_name().unwrap().to_str().unwrap() ){
+            
+            files.push(path);
+        }
+    }
+    Ok(files)
 }
