@@ -1,14 +1,13 @@
-use anyhow::{anyhow, bail, Context};
+use anyhow::{anyhow, bail, Context, Ok};
 use flate2::bufread::ZlibDecoder;
+use hex_literal::hex;
+use sha1::{Digest, Sha1};
 use std::{
-    ffi::CStr,
-    fs::{self},
-    io::{ BufRead, BufReader, Read, Write},
-    path::PathBuf,
+    collections::VecDeque, ffi::CStr, fmt::format, fs::{self}, io::{BufRead, BufReader, Read, Write}, path::PathBuf
 };
 
 // temporarily to limit the outpu files when testing and developing features
-const IGNORED : &[&str]= &["target", ".git" , ".gitignore" , ".env"];
+const IGNORED: &[&str] = &["target", ".git", ".gitignore", ".env"];
 enum BlobKind {
     Blob,
     Commit,
@@ -187,12 +186,27 @@ fn collect_tracked_files(dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
-        if path.is_dir() &&  !IGNORED.contains(&path.file_name().unwrap().to_str().unwrap() ){
+        if path.is_dir() && !IGNORED.contains(&path.file_name().unwrap().to_str().unwrap()) {
             files.extend(collect_tracked_files(&path)?);
-        } else if path.is_file()&&  !IGNORED.contains(&path.file_name().unwrap().to_str().unwrap() ){
-            
+        } else if path.is_file() && !IGNORED.contains(&path.file_name().unwrap().to_str().unwrap())
+        {
             files.push(path);
         }
     }
     Ok(files)
+}
+
+pub fn hash_file(write_to_objects: bool, file_path: String) -> anyhow::Result<String> {
+    let file_path = Path::new(&file_path);
+    let mut f = fs::File::open(file_path).context("openning file")?;
+    let mut buf = Vec::new();
+    let size = f.read_to_end(&mut buf).context("reading file")?;
+    let mut blob :Vec<u8>= Vec::new();
+    let header =format!("blob {size}\0");
+    blob.extend(header.as_bytes() );
+    blob.extend(&buf);
+    let mut hasher = Sha1::new();
+    hasher.update(blob);
+    let hashed_bytes = hasher.finalize();
+    Ok(hex::encode(hashed_bytes))
 }

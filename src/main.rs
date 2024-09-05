@@ -3,7 +3,7 @@ mod git;
 use anyhow::bail;
 
 use clap::{Parser, Subcommand};
-use git::{cat_file, get_wd, git_add, init_repo};
+use git::{cat_file, get_wd, git_add, hash_file, init_repo};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -21,10 +21,15 @@ enum Commands {
         pretty_print: bool,
         sha: String,
     },
+    HashFile{
+        #[clap(short = 'w')]
+        write_to_objects: bool,
+
+        file_name: String,
+    },
     Add {
         files_option: Option<Vec<String>>,
     },
-    Wd,
 }
 fn main() -> Result<(), anyhow::Error> {
     let args = Args::parse();
@@ -43,8 +48,8 @@ fn main() -> Result<(), anyhow::Error> {
                 bail!("add what dumb motherfucker");
             }
         },
-        Some(Commands::Wd) => {
-            get_wd()?;
+        Some(Commands::HashFile{write_to_objects , file_name}) => {
+            hash_file(write_to_objects , file_name)?;
         }
         None => bail!("uknown command"),
     }
