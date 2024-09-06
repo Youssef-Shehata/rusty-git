@@ -1,8 +1,12 @@
 use anyhow::{anyhow, bail, Context};
-use flate2::bufread::ZlibDecoder;
+use flate2::{ bufread::ZlibDecoder,write::ZlibEncoder, Compression};
 use sha1::{Digest, Sha1};
 use std::{
-     ffi::CStr,  fs::{self}, io::{BufRead, BufReader, Read, Write}, path::PathBuf
+    ffi::CStr,
+    fs::{self, File},
+    io::{BufRead, BufReader, Read, Write},
+    os::unix::fs::MetadataExt,
+    path::PathBuf,
 };
 
 // temporarily to limit the outpu files when testing and developing features
@@ -46,7 +50,7 @@ pub fn init_repo(name: Option<String>) -> anyhow::Result<()> {
         }
     }
 
-    if let Ok(()) =  assert_wd_is_repo(&wd) {
+    if let Ok(()) = assert_wd_is_repo(&wd) {
         println!("reinitializing repo");
         return Ok(());
     }
@@ -178,9 +182,6 @@ pub fn git_add(args: &Vec<String>) -> anyhow::Result<()> {
     Ok(())
 }
 fn collect_tracked_files(dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
-    println!("\n");
-    println!("collecting on {}", dir.display());
-    println!("\n");
     let mut files = Vec::new();
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
@@ -198,14 +199,41 @@ fn collect_tracked_files(dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
 pub fn hash_file(write_to_objects: bool, file_path: String) -> anyhow::Result<String> {
     let file_path = Path::new(&file_path);
     let mut f = fs::File::open(file_path).context("openning file")?;
+    let size = f.metadata()?.size();
+    println!("{size}");
     let mut buf = Vec::new();
-    let size = f.read_to_end(&mut buf).context("reading file")?;
-    let mut blob :Vec<u8>= Vec::new();
-    let header =format!("blob {size}\0");
-    blob.extend(header.as_bytes() );
-    blob.extend(&buf);
+    f.read_to_end(&mut buf).context("reading file")?;
     let mut hasher = Sha1::new();
-    hasher.update(blob);
+    hasher.update(format!("blob {}\0", size));
+    hasher.update(&buf);
     let hashed_bytes = hasher.finalize();
-    Ok(hex::encode(hashed_bytes))
+    let sha = hex::encode(hashed_bytes);
+    if write_to_objects {
+        let wd = get_wd()?;
+        println!("working dir {}", wd);
+        let wd = wd + &format!("/.git/objects/{}", &sha[..2]);
+        let path = Path::new(&wd);
+        if path.is_dir() {
+        } else {
+            fs::create_dir(&path).context("creating blob folder")?;
+            let new_file =  &format!("{}/{}" , wd.clone(),&sha[2..]);
+            println!("newpath: {}" , new_file);
+            let new_file_path = Path::new(&new_file);
+            if let Ok(_) = File::open(new_file_path) {
+            } else {
+                let mut f = File::create(new_file_path).context("creating new blob")?;
+                let mut z = ZlibEncoder::new(Vec::new(), Compression::default());
+                let ccontent  = String::from_utf8_lossy(&buf);
+                println!("content {}", ccontent.to_string());
+    z.write_all(format!("blob {}\0", size).as_bytes())?;
+                z.write_all(&buf)?;
+                let compressed = z.finish().context("compressing file")?;
+                f.write_all(&compressed)?;
+                
+                
+            
+            }
+        }
+    }
+    Ok(sha)
 }
