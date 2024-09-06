@@ -49,7 +49,8 @@ fn main() -> Result<(), anyhow::Error> {
             }
         },
         Some(Commands::HashFile{write_to_objects , file_name}) => {
-            hash_file(write_to_objects , file_name)?;
+            let hash = hash_file(write_to_objects , file_name)?;
+            println!("{hash}");
         }
         None => bail!("uknown command"),
     }

@@ -1,9 +1,8 @@
-use anyhow::{anyhow, bail, Context, Ok};
+use anyhow::{anyhow, bail, Context};
 use flate2::bufread::ZlibDecoder;
-use hex_literal::hex;
 use sha1::{Digest, Sha1};
 use std::{
-    collections::VecDeque, ffi::CStr, fmt::format, fs::{self}, io::{BufRead, BufReader, Read, Write}, path::PathBuf
+     ffi::CStr,  fs::{self}, io::{BufRead, BufReader, Read, Write}, path::PathBuf
 };
 
 // temporarily to limit the outpu files when testing and developing features
@@ -47,7 +46,7 @@ pub fn init_repo(name: Option<String>) -> anyhow::Result<()> {
         }
     }
 
-    if let Ok(()) = assert_wd_is_repo(&wd) {
+    if let Ok(()) =  assert_wd_is_repo(&wd) {
         println!("reinitializing repo");
         return Ok(());
     }
