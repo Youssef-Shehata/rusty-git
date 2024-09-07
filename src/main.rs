@@ -1,10 +1,18 @@
 mod git;
 
+use add::git_add;
 use anyhow::bail;
 
 use clap::{Parser, Subcommand};
-use git::{cat_file, get_wd, git_add, hash_file, init_repo};
-
+use git::init_repo;
+use ls_tree::ls_tree;
+mod hash_object;
+use crate::hash_object::*;
+mod cat_file;
+use crate::cat_file::*;
+mod add;
+mod objects;
+mod ls_tree;
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Args {
@@ -16,12 +24,16 @@ enum Commands {
     Init {
         name_option: Option<String>,
     },
+    LsTree{
+        names_only: bool,
+        sha: String,
+    },
     CatFile {
         #[clap(short = 'p')]
         pretty_print: bool,
         sha: String,
     },
-    HashFile{
+    HashFile {
         #[clap(short = 'w')]
         write_to_objects: bool,
 
@@ -38,7 +50,10 @@ fn main() -> Result<(), anyhow::Error> {
             init_repo(name_option)?;
         }
         Some(Commands::CatFile { pretty_print, sha }) => {
-             cat_file(pretty_print, &sha)?;
+            cat_file(pretty_print, &sha)?;
+        }
+        Some(Commands::LsTree{ names_only, sha }) => {
+           ls_tree(names_only, &sha)?;
         }
         Some(Commands::Add { files_option }) => match files_option {
             Some(files) => {
@@ -48,8 +63,11 @@ fn main() -> Result<(), anyhow::Error> {
                 bail!("add what dumb motherfucker");
             }
         },
-        Some(Commands::HashFile{write_to_objects , file_name}) => {
-            let hash = hash_file(write_to_objects , file_name)?;
+        Some(Commands::HashFile {
+            write_to_objects,
+            file_name,
+        }) => {
+            let hash = hash_file(write_to_objects, file_name)?;
             println!("{hash}");
         }
         None => bail!("uknown command"),
