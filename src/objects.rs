@@ -6,7 +6,7 @@ use std::{
     ffi::CStr,
     fmt::Display,
     fs::{self},
-    io::{BufRead, BufReader, Read, Write},
+    io::{BufRead, BufReader, Read},
     path::Path,
 };
 
@@ -27,7 +27,7 @@ impl Display for BlobKind {
 }
 
 pub struct Object<R> {
-    pub size: u64,
+    pub size:String,
     pub kind: BlobKind,
     pub buffer: R,
 }
@@ -52,7 +52,7 @@ impl Object<()> {
             .to_str()
             .context("Blob has invalid characters , make sure its all UTF-8")?;
 
-        let Some((kind, size)) = header.split_once(" ") else {
+        let Some((kind, mut size)) = header.split_once(" ") else {
             bail!("invalid header of blob file")
         };
         let kind = match kind {
@@ -61,12 +61,17 @@ impl Object<()> {
             "tree" => BlobKind::Tree,
             _ => bail!("tf is a {kind}"),
         };
-        let size = size.parse::<usize>().context("couldn't read blob size")?;
 
-        let buffer = buff_reader.take(size as u64);
+        let size_num = size.parse::<usize>().context("couldn't read blob size")?;
+        let buffer = buff_reader.take(size_num as u64);
+        if matches!(kind , BlobKind::Tree){
+            size = "-";
+
+
+        }
         Ok(Object {
             kind,
-            size: size as u64,
+            size: size.to_string(),
             buffer,
         })
     }

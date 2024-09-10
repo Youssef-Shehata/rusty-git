@@ -1,26 +1,39 @@
-use std::io::{Read};
+use std::io::Read;
 
 use anyhow::{bail, Context, Ok};
 
-use crate::{ls_tree::ls_tree, objects::{BlobKind, Object}};
+use crate::{
+    ls_tree::ls_tree,
+    objects::{BlobKind, Object},
+    CatOptions, 
+};
 
-pub fn cat_file(pretty_print: bool, sha: &String) -> anyhow::Result<()> {
-    let mut file_object = Object::read(sha)?;
-    anyhow::ensure!(pretty_print , "please choose a valid option");
+pub fn cat_file(option: Option<CatOptions>, sha: &String) -> anyhow::Result<()> {
+    let mut obj = Object::read(sha)?;
     let mut buf = Vec::new();
-    match file_object.kind {
+
+    let size = obj.size.parse::<usize>().context("failed to read blob size")? ;
+    buf.resize(size,0);
+
+    match obj.kind {
         BlobKind::Blob => {
-            let _ = file_object.buffer.read_to_end(&mut buf).context("")?;
+            let _ = obj.buffer.read_exact(&mut buf).context("")?;
             let content = String::from_utf8_lossy(&buf);
-            println!("{}", content.to_string());
-        },
-        BlobKind::Tree =>{
 
-            ls_tree(false, &sha)?;
+            match option {
+                Some(op) => match op {
+                    CatOptions::PrettyPrint =>  println!("{}", content.to_string()),
+                    CatOptions::ShowType =>  println!("{}", obj.kind),
+                    CatOptions::ShowSize =>  println!("{}", size), 
+                }
+                None => bail!("please provide a valid option"),
+            }
+        }
 
-        },
-        _ => bail!(format!("can't cat a {}", file_object.kind)),
+        BlobKind::Tree =>  ls_tree(None, &sha)?,
+
+        _ => bail!(format!("can't cat a {}", obj.kind)),
     }
 
-            Ok(())
+    Ok(())
 }
