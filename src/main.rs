@@ -25,6 +25,7 @@ enum Commands {
         name_option: Option<String>,
     },
     LsTree{
+    #[arg(short, long, default_value_t = false)]
         names_only: bool,
         sha: String,
     },
