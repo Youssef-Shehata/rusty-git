@@ -1,10 +1,22 @@
-use std::io::{BufRead, Read};
-use anyhow::Context;
 use crate::{
     objects::{BlobKind, Object},
     TreeOptions,
 };
+use anyhow::{bail, Context};
+use std::io::{BufRead, Read};
 
+fn check_file_type(mode: u32) -> anyhow::Result<BlobKind> {
+    let tree_mode = format!("{mode}");
+    let tree_mode = u32::from_str_radix(&tree_mode, 8)?;
+    if ( tree_mode & 0o170000) == 0o40000 {
+        return Ok(BlobKind::Tree);
+    } else if (mode & 0o170000) == 0o100000 {
+        return Ok(BlobKind::Blob);
+    } else if (mode & 0o170000) == 0o120000 {
+        return Ok(BlobKind::Tree);
+    }
+    bail!("weird ass file")
+}
 pub fn ls_tree(tree_options: Option<TreeOptions>, sha: &String) -> anyhow::Result<()> {
     let mut obj = Object::read(sha)?;
 
@@ -33,27 +45,31 @@ pub fn ls_tree(tree_options: Option<TreeOptions>, sha: &String) -> anyhow::Resul
 
         let _ = &obj.buffer.read(&mut hash).expect("couldnt read tree");
         let hash = hex::encode(hash);
-        let blob = Object::read(&hash).context("tree has a corrupted blob")?;
+
+        let kind = check_file_type(mode.parse::<u32>()?)?;
 
         match tree_options {
             Some(ref option) => match option {
-                TreeOptions::ShowSize  => println!("{mode} {} {} {}    {name}",blob.kind,hash,blob.size),
+                TreeOptions::ShowSize => {
+                    let blob = Object::read(&hash).context("tree has a corrupt file")?;
+                    println!("{mode} {} {} {}    {name}", kind, hash, blob.size);
+                }
                 TreeOptions::NamesOnly => println!("{name}"),
                 TreeOptions::OnlyTrees => {
-                    if matches!(blob.kind, BlobKind::Tree) {
-                        println!("{mode} {} {}    {name}", blob.kind, hash);
+                    if matches!(kind, BlobKind::Tree) {
+                        println!("{mode} {} {}    {name}", kind, hash);
                     }
                 }
 
                 TreeOptions::Recurse => {
-                    if matches!(blob.kind, BlobKind::Tree) {
+                    if matches!(kind, BlobKind::Tree) {
                         ls_tree(Some(TreeOptions::Recurse), &hash)?;
                     } else {
-                        println!("{mode} {} {}    {name}", blob.kind, hash);
+                        println!("{mode} {} {}    {name}", kind, hash);
                     }
                 }
             },
-            None => println!("{mode} {} {}    {name}", blob.kind, hash),
+            None => println!("{mode} {} {}    {name}", kind, hash),
         }
     }
     return Ok(());

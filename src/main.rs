@@ -4,13 +4,16 @@ use anyhow::bail;
 use clap::{Args, Parser, Subcommand};
 use git::init_repo;
 use ls_tree::ls_tree;
+use write_tree::write_tree;
 mod hash_object;
 use crate::hash_object::*;
 mod cat_file;
 use crate::cat_file::*;
 mod add;
+mod files;
 mod ls_tree;
 mod objects;
+mod write_tree;
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct MyArgs {
@@ -33,7 +36,10 @@ enum Commands {
         option: CatFileOptions,
         sha: String,
     },
-    HashObject{
+    WriteTree{
+        dir_name: String,
+    },
+    HashObject {
         #[clap(short = 'w')]
         write_to_objects: bool,
 
@@ -75,11 +81,11 @@ struct CatFileOptions {
     pretty_print: bool,
 
     #[clap(short = 's')]
-    #[arg( long, default_value_t = false)]
+    #[arg(long, default_value_t = false)]
     show_size: bool,
 
     #[clap(short = 't')]
-    #[arg( long, default_value_t = false)]
+    #[arg(long, default_value_t = false)]
     show_type: bool,
 }
 enum CatOptions {
@@ -98,12 +104,15 @@ fn main() -> Result<(), anyhow::Error> {
         Some(Commands::CatFile { option, sha }) => {
             if option.pretty_print {
                 cat_file(Some(CatOptions::PrettyPrint), &sha)?;
+            return Ok(());
             }
             if option.show_size {
                 cat_file(Some(CatOptions::ShowSize), &sha)?;
+            return Ok(());
             }
             if option.show_type {
                 cat_file(Some(CatOptions::ShowType), &sha)?;
+            return Ok(());
             }
 
             Ok(())
@@ -111,17 +120,22 @@ fn main() -> Result<(), anyhow::Error> {
         Some(Commands::LsTree { option, sha }) => {
             if option.only_trees {
                 ls_tree(Some(TreeOptions::OnlyTrees), &sha)?;
+                return Ok(());
             }
             if option.show_size {
                 ls_tree(Some(TreeOptions::ShowSize), &sha)?;
+                return Ok(());
             }
             if option.recurse {
                 ls_tree(Some(TreeOptions::Recurse), &sha)?;
+                return Ok(());
             }
             if option.name_only {
                 ls_tree(Some(TreeOptions::NamesOnly), &sha)?;
+                return Ok(());
             }
 
+            ls_tree(None, &sha)?;
             Ok(())
         }
         Some(Commands::Add { files_option }) => match files_option {
@@ -133,11 +147,18 @@ fn main() -> Result<(), anyhow::Error> {
                 bail!("add what dumb motherfucker");
             }
         },
-        Some(Commands::HashObject{
+        Some(Commands::HashObject {
             write_to_objects,
             file_name,
         }) => {
-            let hash = hash_object(write_to_objects, file_name)?;
+            let hash = hash_object(write_to_objects,objects::BlobKind::Blob, &file_name).expect(&format!("fatal: couldn't hash file {}", file_name));
+            println!("{hash}");
+            Ok(())
+        }
+        Some(Commands::WriteTree{
+            dir_name,
+        }) => {
+            let hash = write_tree(&dir_name).expect(&format!("fatal: couldn't hash dir {}", dir_name));
             println!("{hash}");
             Ok(())
         }

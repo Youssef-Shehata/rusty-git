@@ -1,4 +1,4 @@
-use crate::git::get_wd;
+use crate::files::get_wd;
 
 use anyhow::{bail, Context};
 use flate2::read::ZlibDecoder;
@@ -10,6 +10,7 @@ use std::{
     path::Path,
 };
 
+#[derive(Debug)]
 pub enum BlobKind {
     Blob,
     Commit,
@@ -26,6 +27,7 @@ impl Display for BlobKind {
     }
 }
 
+#[derive(Debug)]
 pub struct Object<R> {
     pub size:String,
     pub kind: BlobKind,
@@ -52,7 +54,7 @@ impl Object<()> {
             .to_str()
             .context("Blob has invalid characters , make sure its all UTF-8")?;
 
-        let Some((kind, mut size)) = header.split_once(" ") else {
+        let Some((kind, size)) = header.split_once(" ") else {
             bail!("invalid header of blob file")
         };
         let kind = match kind {
@@ -64,11 +66,6 @@ impl Object<()> {
 
         let size_num = size.parse::<usize>().context("couldn't read blob size")?;
         let buffer = buff_reader.take(size_num as u64);
-        if matches!(kind , BlobKind::Tree){
-            size = "-";
-
-
-        }
         Ok(Object {
             kind,
             size: size.to_string(),
@@ -76,22 +73,11 @@ impl Object<()> {
         })
     }
 
-    //buff.clear();
     //buff.resize(size, 0);
-    //buff_reader
-    //    .read_exact(&mut buff)
-    //    .context("failed to read blob contents")?;
-
-    //let n = buff_reader.read(&mut [0]).context("")?;
-
-    //if n != 0 {
-    //    bail!(
-    //    "size of blob exceeded expectations , expected {size} bytes, found {n} trailing bytes."
-    //);
-    //}
 }
 
 fn find_blob(sha: &String) -> anyhow::Result<std::fs::File> {
+    println!("find blob using sha :  {sha}");
     let wd = get_wd()?;
     let blob_folder = &format!("{}/.git/objects/{}/", wd, &sha[..2]);
     let blob_folder_path = Path::new(&blob_folder);
