@@ -33,7 +33,7 @@ enum Commands {
         option: CatFileOptions,
         sha: String,
     },
-    HashFile {
+    HashObject{
         #[clap(short = 'w')]
         write_to_objects: bool,
 
@@ -75,11 +75,11 @@ struct CatFileOptions {
     pretty_print: bool,
 
     #[clap(short = 's')]
-    #[arg(short, long, default_value_t = false)]
+    #[arg( long, default_value_t = false)]
     show_size: bool,
 
     #[clap(short = 't')]
-    #[arg(short, long, default_value_t = false)]
+    #[arg( long, default_value_t = false)]
     show_type: bool,
 }
 enum CatOptions {
@@ -111,11 +111,14 @@ fn main() -> Result<(), anyhow::Error> {
         Some(Commands::LsTree { option, sha }) => {
             if option.only_trees {
                 ls_tree(Some(TreeOptions::OnlyTrees), &sha)?;
-            } if option.show_size {
+            }
+            if option.show_size {
                 ls_tree(Some(TreeOptions::ShowSize), &sha)?;
-            } if option.recurse {
+            }
+            if option.recurse {
                 ls_tree(Some(TreeOptions::Recurse), &sha)?;
-            } if option.name_only {
+            }
+            if option.name_only {
                 ls_tree(Some(TreeOptions::NamesOnly), &sha)?;
             }
 
@@ -130,11 +133,11 @@ fn main() -> Result<(), anyhow::Error> {
                 bail!("add what dumb motherfucker");
             }
         },
-        Some(Commands::HashFile {
+        Some(Commands::HashObject{
             write_to_objects,
             file_name,
         }) => {
-            let hash = hash_file(write_to_objects, file_name)?;
+            let hash = hash_object(write_to_objects, file_name)?;
             println!("{hash}");
             Ok(())
         }
