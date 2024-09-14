@@ -14,7 +14,6 @@ pub fn cat_file(option: Option<CatOptions>, sha: &String) -> anyhow::Result<()> 
 
     let size = obj.size.parse::<usize>().context("failed to read blob size")?;
     buf.resize(size, 0);
-    println!("obj :{:?}", obj.size );
     let size = obj
         .size
         .parse::<usize>()

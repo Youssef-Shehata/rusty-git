@@ -38,7 +38,7 @@ impl Object<()> {
         if sha.len() < 4 {
             bail!("minimum 4 letters needed for the sha");
         }
-        let comp_file = find_blob(sha).context("blob not found")?;
+        let comp_file = find_blob(sha)?;
 
         let mut buff = Vec::new();
         let z_lib = ZlibDecoder::new(comp_file);
@@ -101,7 +101,7 @@ fn find_blob(sha: &String) -> anyhow::Result<std::fs::File> {
         }
     }
     if files.is_empty() {
-        bail!("couldnt find blob");
+        bail!("fatal: Not a valid object namde {}." , sha);
     }
 
     let f = fs::File::open(&files[0]).context("corrupted blob")?;

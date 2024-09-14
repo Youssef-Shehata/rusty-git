@@ -1,6 +1,7 @@
 [package]
 name = "rusty-git"
 version = "0.1.0"
+authors = ["Youssef-Shehata"]
 edition = "2021"
 
 [dependencies]

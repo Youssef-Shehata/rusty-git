@@ -53,7 +53,7 @@ pub fn hash_tree(path : &Path) -> anyhow::Result<String> {
                 .mode();
             files.push(FileObject::new(mode, hash, file_name.to_string()));
         } else if path.is_file() {
-            let hash = hash_object(false, BlobKind::Blob, &file_path.to_string())?;
+            let hash = hash_object(true, BlobKind::Blob, &file_path.to_string())?;
             let mode = path
                 .metadata()
                 .context("failed to read metadata of file")?
