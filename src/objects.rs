@@ -77,7 +77,6 @@ impl Object<()> {
 }
 
 fn find_blob(sha: &String) -> anyhow::Result<std::fs::File> {
-    println!("find blob using sha :  {sha}");
     let wd = get_wd()?;
     let blob_folder = &format!("{}/.git/objects/{}/", wd, &sha[..2]);
     let blob_folder_path = Path::new(&blob_folder);

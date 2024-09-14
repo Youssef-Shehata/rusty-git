@@ -1,8 +1,5 @@
-use crate::{
-    files::{get_wd},
-    objects::BlobKind,
-};
-use anyhow::{ Context};
+use crate::{files::get_wd, objects::BlobKind};
+use anyhow::Context;
 use flate2::{write::ZlibEncoder, Compression};
 use sha1::{Digest, Sha1};
 use std::{
@@ -11,12 +8,17 @@ use std::{
     os::unix::fs::MetadataExt,
     path::Path,
 };
-pub fn hash_object(write_to_objects: bool, kind: BlobKind, file_path: &String) -> anyhow::Result<String> {
+pub fn hash_object(
+    write_to_objects: bool,
+    kind: BlobKind,
+    file_path: &String,
+) -> anyhow::Result<String> {
     let path = Path::new(&file_path);
     let mut f = File::open(path).context("openning file")?;
     let mut buf = Vec::new();
 
     let size = f.metadata().context("reading metadata")?.size();
+
     //WHAT HAPPENS IF SIZE IS ACTUALLY BIGGER THAN USIZE????
     buf.resize(size as usize, 0);
     f.read_exact(&mut buf).context("reading file")?;

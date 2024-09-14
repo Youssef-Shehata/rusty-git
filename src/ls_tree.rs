@@ -46,18 +46,19 @@ pub fn ls_tree(tree_options: Option<TreeOptions>, sha: &String) -> anyhow::Resul
         let _ = &obj.buffer.read(&mut hash).expect("couldnt read tree");
         let hash = hex::encode(hash);
 
-        let kind = check_file_type(mode.parse::<u32>()?)?;
+        let mode = mode.parse::<u32>()?;
+        let kind = check_file_type(mode )?;
 
         match tree_options {
             Some(ref option) => match option {
                 TreeOptions::ShowSize => {
                     let blob = Object::read(&hash).context("tree has a corrupt file")?;
-                    println!("{mode} {} {} {}    {name}", kind, hash, blob.size);
+                    println!("{mode:o} {} {} {}    {name}", kind, hash, blob.size);
                 }
                 TreeOptions::NamesOnly => println!("{name}"),
                 TreeOptions::OnlyTrees => {
                     if matches!(kind, BlobKind::Tree) {
-                        println!("{mode} {} {}    {name}", kind, hash);
+                        println!("{mode:o} {} {}    {name}", kind, hash);
                     }
                 }
 
@@ -65,11 +66,11 @@ pub fn ls_tree(tree_options: Option<TreeOptions>, sha: &String) -> anyhow::Resul
                     if matches!(kind, BlobKind::Tree) {
                         ls_tree(Some(TreeOptions::Recurse), &hash)?;
                     } else {
-                        println!("{mode} {} {}    {name}", kind, hash);
+                        println!("{mode:o} {} {}    {name}", kind, hash);
                     }
                 }
             },
-            None => println!("{mode} {} {}    {name}", kind, hash),
+            None => println!("{mode:o} {} {}    {name}", kind, hash),
         }
     }
     return Ok(());

@@ -36,9 +36,8 @@ enum Commands {
         option: CatFileOptions,
         sha: String,
     },
-    WriteTree{
-        dir_name: String,
-    },
+    WriteTree
+    ,
     HashObject {
         #[clap(short = 'w')]
         write_to_objects: bool,
@@ -155,10 +154,8 @@ fn main() -> Result<(), anyhow::Error> {
             println!("{hash}");
             Ok(())
         }
-        Some(Commands::WriteTree{
-            dir_name,
-        }) => {
-            let hash = write_tree(&dir_name).expect(&format!("fatal: couldn't hash dir {}", dir_name));
+        Some(Commands::WriteTree) => {
+            let hash = write_tree().expect(&format!("fatal: couldn't hash dir"));
             println!("{hash}");
             Ok(())
         }
