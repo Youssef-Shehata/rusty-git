@@ -21,7 +21,7 @@ pub fn init_repo(name: Option<String>) -> anyhow::Result<()> {
         return Ok(());
     }
     let git_path = wd + "/.git";
-    fs::create_dir_all(format!("{}/refs", git_path))?;
+    fs::create_dir_all(format!("{}/refs/heads", git_path))?;
     fs::create_dir_all(format!("{}/objects", git_path))?;
     let mut f = fs::File::create_new(format!("{}/HEAD", git_path))?;
     f.write_all("ref: refs/head/main\n".as_bytes())?;

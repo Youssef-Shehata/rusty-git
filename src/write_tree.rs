@@ -63,15 +63,14 @@ pub fn hash_tree(path : &Path) -> anyhow::Result<String> {
     }
 
     let wd = get_wd()?;
-    let tmp_path = format!("{wd}/.git/tmp");
+    let tmp_path = format!("{wd}/.git/tmp_tree");
     let mut f = fs::File::create(&tmp_path).context("writing temp")?;
     for file in files.iter() {
         f.write(format!("{:o} {}\0", file.mode, file.name).as_bytes())?;
-        println!("writing file which mode is : {}", file.mode);
         f.write(&hex::decode(file.sha.clone())?)?;
     }
     let Ok(sha) = hash_object(true, BlobKind::Tree, &tmp_path) else {
-        bail!("caouldnt hash tree");
+        bail!("couldnt hash tree");
     };
     fs::remove_file(tmp_path)?;
 

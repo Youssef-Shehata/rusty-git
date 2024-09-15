@@ -2,6 +2,7 @@ mod git;
 use add::git_add;
 use anyhow::bail;
 use clap::{Args, Parser, Subcommand};
+use commit::commit_tree;
 use git::init_repo;
 use ls_tree::ls_tree;
 use write_tree::write_tree;
@@ -14,6 +15,7 @@ mod files;
 mod ls_tree;
 mod objects;
 mod write_tree;
+mod commit;
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct MyArgs {
@@ -36,7 +38,13 @@ enum Commands {
         option: CatFileOptions,
         sha: String,
     },
-    WriteTree
+    WriteTree,
+    CommitTree{
+
+        #[clap(short = 'm')]
+        message: String,
+
+    }
     ,
     HashObject {
         #[clap(short = 'w')]
@@ -150,12 +158,17 @@ fn main() -> Result<(), anyhow::Error> {
             write_to_objects,
             file_name,
         }) => {
-            let hash = hash_object(write_to_objects,objects::BlobKind::Blob, &file_name).expect(&format!("fatal: couldn't hash file {}", file_name));
+            let hash = hash_object(write_to_objects,objects::BlobKind::Blob, &file_name)?;
             println!("{hash}");
             Ok(())
         }
         Some(Commands::WriteTree) => {
-            let hash = write_tree().expect(&format!("fatal: couldn't hash dir"));
+            let hash = write_tree()?;
+            println!("{hash}");
+            Ok(())
+        }
+        Some(Commands::CommitTree{message}) => {
+            let hash = commit_tree(message)?;
             println!("{hash}");
             Ok(())
         }
