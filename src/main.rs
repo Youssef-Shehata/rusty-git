@@ -1,16 +1,17 @@
 mod git;
-use add::git_add;
+use index::git_add;
 use anyhow::bail;
 use clap::{Args, Parser, Subcommand};
 use commit::commit_tree;
 use git::init_repo;
+use index::git_status;
 use ls_tree::ls_tree;
 use write_tree::write_tree;
 mod hash_object;
 use crate::hash_object::*;
 mod cat_file;
 use crate::cat_file::*;
-mod add;
+mod index;
 mod files;
 mod ls_tree;
 mod objects;
@@ -39,6 +40,7 @@ enum Commands {
         sha: String,
     },
     WriteTree,
+    Status,
     CommitTree{
 
         #[clap(short = 'm')]
@@ -145,7 +147,20 @@ fn main() -> Result<(), anyhow::Error> {
             ls_tree(None, &sha)?;
             Ok(())
         }
+        Some(Commands::Status) => {
+
+            let res = git_status();
+            match res {
+                Ok(())=> {},
+                Err(e)=> eprint!("{e}"),
+                
+            };
+            Ok(())
+            
+        },
+
         Some(Commands::Add { files_option }) => match files_option {
+            
             Some(files) => {
                 let _ = git_add(&files)?;
                 Ok(())
